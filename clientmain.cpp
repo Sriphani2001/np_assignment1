@@ -44,7 +44,7 @@ void sendMessage(int &sock_desc, const char* client_request) {
 }
 
 // Computes the result based on the server's request and sends it back
-void computeAndSendResult(char* server_response, int &sock_desc) {
+void computeAndSendResult(const char* server_response, int &sock_desc) {
     int int1, int2, int_result;
     double float1, float2, float_result;
     char operation[10];
@@ -60,8 +60,8 @@ void computeAndSendResult(char* server_response, int &sock_desc) {
     } else if(strcmp(operation, "fdiv") == 0) {
         float_result = float1 / float2;
     } else {
-        int1 = (int)float1;
-        int2 = (int)float2;
+        int1 = static_cast<int>(float1);
+        int2 = static_cast<int>(float2);
 
         if(strcmp(operation, "add") == 0) {
             int_result = int1 + int2;
@@ -75,7 +75,7 @@ void computeAndSendResult(char* server_response, int &sock_desc) {
     }
 
     char response[50];
-    if(server_response[0] == 'f') {
+    if(operation[0] == 'f') {
         sprintf(response, "%8.8g\n", float_result);
     } else {
         sprintf(response, "%d\n", int_result);
@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
     char* colon = strrchr(host_port, ':');
     if (!colon) {
         printf("Incorrect format. Use <host:port>\n");
+        free(host_port); // Changed part: Ensure to free allocated memory
         return -1;
     }
 
@@ -110,6 +111,7 @@ int main(int argc, char *argv[]) {
 
     if (getaddrinfo(hostname, colon + 1, &hints, &server_info) < 0) {
         printf("Error in getaddrinfo: %s\n", strerror(errno));
+        free(host_port); // Changed part: Ensure to free allocated memory
         return -1;
     }
 
@@ -118,6 +120,8 @@ int main(int argc, char *argv[]) {
         #ifdef DEBUG
         printf("Socket creation failed\n");
         #endif
+        freeaddrinfo(server_info); // Changed part: Ensure to free allocated memory
+        free(host_port); // Changed part: Ensure to free allocated memory
         return -1;
     }
     #ifdef DEBUG
@@ -128,6 +132,9 @@ int main(int argc, char *argv[]) {
         #ifdef DEBUG
         printf("Connection to server failed\n");
         #endif
+        freeaddrinfo(server_info); // Changed part: Ensure to free allocated memory
+        close(sock_desc); // Changed part: Close socket if connection fails
+        free(host_port); // Changed part: Ensure to free allocated memory
         return -1;
     }
     #ifdef DEBUG
@@ -135,6 +142,7 @@ int main(int argc, char *argv[]) {
     #endif
 
     freeaddrinfo(server_info);
+    free(host_port); // Changed part: Ensure to free allocated memory
 
     char server_response[2000];
     receiveMessage(sock_desc, server_response, sizeof(server_response));
