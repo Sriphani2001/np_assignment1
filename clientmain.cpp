@@ -1,250 +1,189 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include "calcLib.h"
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <errno.h>
 #include <netdb.h>
-#include <string>
-#include <iostream>
+#include <unistd.h>
+#define SA struct sockaddr
+/* You will to add includes here */
+
+// Enable if you want debugging to be printed, see example below.
+// Alternative, pass CFLAGS=-DDEBUG to make, make CFLAGS=-DDEBUG
 //#define DEBUG
 
-using namespace std;
 
-int main(int argc, char *argv[])
-{
-	char delim[] = ":";
-	char *Desthost = strtok(argv[1], delim);
-	char *Destport = strtok(NULL, delim);
-	//**Read ip addresses
-	int port = atoi(Destport);
-	int rc, soc, valread, client_fd;
-	char buffer[2000];
+// Included to get the support library
+#include <calcLib.h>
 
-	struct in6_addr serveraddr;
-	struct addrinfo hints, *res = NULL;
-
-	memset(&hints, 0x00, sizeof(hints));
-	hints.ai_flags = AI_NUMERICSERV;
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-
-	/* Check if we were provided the address of the server using
-	 inet_pton() to convert the text form of the address to binary    */
-
-	rc = inet_pton(AF_INET, Desthost, &serveraddr);
-	if (rc == 1) /* valid IPv4 text address? */
-	{
-		hints.ai_family = AF_INET;
-		hints.ai_flags |= AI_NUMERICHOST;
-	}
-	else
-	{
-		rc = inet_pton(AF_INET6, Desthost, &serveraddr);
-		if (rc == 1) /* valid IPv6 text address? */
-		{
-
-			hints.ai_family = AF_INET6;
-			hints.ai_flags |= AI_NUMERICHOST;
-		}
-	}
-
-	// Get the address information for the server using getaddrinfo().
-
-	rc = getaddrinfo(Desthost, Destport, &hints, &res);
-	if (rc != 0)
-	{
-		printf("Host not found --> %s\n", gai_strerror(rc));
-		if (rc == EAI_SYSTEM)
-			perror("getaddrinfo() failed");
-		return -1;
-	}
-
-	// *Create socket:*
-	soc = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-	if (soc < 0)
-	{
-		perror("socket() failed");
-		return -1;
-	}
-
-	// Use the connect() function to establish a connection to the server.
-
-	client_fd = connect(soc, res->ai_addr, res->ai_addrlen);
-	if (client_fd < 0)
-	{
-		perror("connect() failed");
-		return -1;
-	}
-	// Get my ip address and port
-	char myIP[16];
-	unsigned int myPort;
-	struct sockaddr_in my_addr;
-	bzero(&my_addr, sizeof(my_addr));
-	socklen_t len = sizeof(my_addr);
-	getsockname(soc, (struct sockaddr *)&my_addr, &len);
-	inet_ntop(AF_INET, &my_addr.sin_addr, myIP, sizeof(myIP));
-	myPort = ntohs(my_addr.sin_port);
-#ifdef DEBUG
-	printf("Local ip address: %s\n", myIP);
-	printf("Local port : %u\n", myPort);
-#endif
-	printf("Host %s and port %d.\n\n", Desthost, port);
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	//  info transfer between server and client
-
-double f1,f2,fresult;
-  int i1,i2,iresult;
-  char *ptr;
-  char *lineBuffer=NULL;
-  char *linBuf=NULL;
-  char *lineBuf;
-  size_t lenBuffer=0;
-  ssize_t nread=0;    
-
-char buf[4096];
-string userInput;
-int tempt=0;
-
- do{
-    memset(buf, 0, sizeof(buf));
-
-    //bytes Recived will recive data from server based on tempt condition
-    int bytesR = recv(soc, buf, 4096, 0);
-    //cout << "> " << string(buf, bytesReceived) << "\r\n";
-    if (bytesR == -1)
-    {
-      cout << "message is not comming from server!!\r\n";
-      return 1;
-    }
-
-    // the fist condition recives  MESSAGE TCP_1.0 and replies with message ok\n which procides the condition to assignmnt conditon
-
-    else if(tempt==0)
-    {
-      tempt++;
-    string(buf, bytesR);
-          
-    #ifdef DEBUG 
-    cout << "> " << string(buf, bytesR) << "\r\n";
-    cout<< "OK\n";
-
+// Function to receive a message from the server
+void receiveMessage(int &socket_desc, char* server_message, unsigned int msg_size){
+  memset(server_message, 0, msg_size);
+  if(recv(socket_desc, server_message, msg_size, 0) < 0){
+    #ifdef DEBUG
+    printf("Error receiving message\n");
     #endif
-    string k = "OK\n";
-    int sendres = send(soc, k.c_str(), k.length(), 0);
-   // cout<< k.length();
-
-   //int sendres = send(soc,"ok\n", 4, 0);
-  }
-  //
-  
-  else if(tempt==1)
-  {
-  tempt=tempt+1;
-  string r ="";
-  cout << "\nAssignment from Server>"<< string(buf, bytesR) << "\r";
-  std::string b = string(buf, bytesR);
-  char *lineBuffer=  strdup(b.c_str());
-
-  b= nread;
-  if (nread == -1 ) {
-    printf("getline failed.\n");
-    exit(1);
-    }
-
-  int rv;
-  char command[10];
-  rv=0;
-  rv=sscanf(lineBuffer,"%s",command);
-  if (rv == EOF ) {
-    printf("Sscanf failed.\n");
-    free(lineBuffer); 
-      exit(1);
-    }
-    
-  if(command[0]=='f'){
-      //printf("Float\t");
-   rv=sscanf(lineBuffer,"%s %lg %lg",command,&f1,&f2);
-    if (rv == EOF ) 
-      {
-        printf("Sscanf failed.\n");
-        free(lineBuffer); 
-        exit(1);
-      }
-
-
-      if(strcmp(command,"fadd")==0){
-      fresult=f1+f2;
-    } else if (strcmp(command, "fsub")==0){
-      fresult=f1-f2;
-    } else if (strcmp(command, "fmul")==0){
-      fresult=f1*f2;
-    } else if (strcmp(command, "fdiv")==0){
-      fresult=f1/f2;
-    }
-    //printf("my result:%8.8g\n",fresult);
-    r = to_string(fresult);
-    #ifdef DEBUG 
-     cout<<"obtained float result :" << fresult <<"\n";
+    exit(-1);
+  } else {
+    #ifdef DEBUG
+    printf("Received: %s", server_message);
     #endif
+  }
+}
 
-    
-  } 
-  else 
-  {
-    //printf("Int\t");
-    rv=sscanf(lineBuffer,"%s %d %d",command,&i1,&i2);
-    if (rv == EOF ) {
-      printf("Sscanf failed.\n");
-      free(lineBuffer); 
-      // This is needed for the getline() as it will allocate memory (if the provided buffer is NUL).
-      exit(1);
-    }
-    if(strcmp(command,"add")==0){
-      iresult=i1+i2;
-    } else if (strcmp(command, "sub")==0){
-      iresult=i1-i2;
-    } else if (strcmp(command, "mul")==0){
-      iresult=i1*i2;
-    } else if (strcmp(command, "div")==0){     
-      iresult=i1/i2;
-    } 
-    //printf("my result: %d \n",iresult);
-    r = to_string(iresult);
-    #ifdef DEBUG 
-      cout<<"obtained inter result :" << iresult<<"\n";
+// Function to send a message to the server
+void sendMessage(int &socket_desc, const char* client_message){
+  if(send(socket_desc, client_message, strlen(client_message), 0) < 0){
+    #ifdef DEBUG
+    printf("Unable to send message\n");
     #endif
-    
+    exit(-1);
+  } else {
+    #ifdef DEBUG
+    printf("Sent: %s", client_message);
+    #endif
+  }
+}
+
+// Function to calculate and send the result back to the server
+void calculateMessage(char* server_message, int &socket_desc){
+  int i1, i2, iresult;
+  double f1, f2, fresult;
+  char operation[10];
+
+  sscanf(server_message, "%s %lf %lf", operation, &f1, &f2);
+
+  if(strcmp(operation, "fadd") == 0){
+    fresult = f1 + f2;
+  } else if(strcmp(operation, "fsub") == 0){
+    fresult = f1 - f2;
+  } else if(strcmp(operation, "fmul") == 0){
+    fresult = f1 * f2;
+  } else if(strcmp(operation, "fdiv") == 0){
+    fresult = f1 / f2;
+  } else {
+    i1 = (int)f1;
+    i2 = (int)f2;
+
+    if(strcmp(operation, "add") == 0){
+      iresult = i1 + i2;
+    } else if(strcmp(operation, "sub") == 0){
+      iresult = i1 - i2;
+    } else if(strcmp(operation, "mul") == 0){
+      iresult = i1 * i2;
+    } else if(strcmp(operation, "div") == 0){
+      iresult = i1 / i2;
     }
-    string result2 = r;
-    r += '\n';
-
-    int sendres = send(soc,r.c_str(), r.length(), 0);
-    if (sendres <0){
-      cout<<"error in sending";
-     }
-    cout << "Result sent to server: " << r;
-
-  free(lineBuffer);
-
   }
-  
-  else
-  {
-  
-    cout << "> " << string(buf, bytesR) << "\r\n";
-    
-    break;
 
+  char response[50];
+  if(server_message[0] == 'f'){
+    sprintf(response, "%8.8g\n", fresult);
+  } else {
+    sprintf(response, "%d\n", iresult);
   }
-  
-  } while(true);
+
+  sendMessage(socket_desc, response);
+}
+
+int main(int argc, char *argv[]){
+  if (argc != 2) {
+    printf("Usage: %s <host:port>\n", argv[0]);
+    return -1;
+  }
+
+  // Parse host and port from argv[1]
+  char* host_port = strdup(argv[1]);
+  char* colon = strrchr(host_port, ':');
+  if (!colon) {
+    printf("Invalid format. Use <host:port>\n");
+    return -1;
+  }
+
+  *colon = '\0';
+  char* host = host_port;
+  int port = atoi(colon + 1);
+
+  printf("Host %s, and port %d.\n", host, port);
+
+  // Get address info
+  struct addrinfo hints, *serverinfo;
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+
+  if (getaddrinfo(host, colon + 1, &hints, &serverinfo) < 0) {
+    printf("Getaddrinfo error: %s\n", strerror(errno));
+    return -1;
+  }
+
+  // Create socket
+  int socket_desc = socket(serverinfo->ai_family, serverinfo->ai_socktype, serverinfo->ai_protocol);
+  if (socket_desc < 0) {
+    #ifdef DEBUG
+    printf("Unable to create socket\n");
+    #endif
+    return -1;
+  }
+  #ifdef DEBUG
+  printf("Socket created\n");
+  #endif
+
+  // Connect to server
+  if (connect(socket_desc, serverinfo->ai_addr, serverinfo->ai_addrlen) < 0) {
+    #ifdef DEBUG
+    printf("Unable to connect\n");
+    #endif
+    return -1;
+  }
+  #ifdef DEBUG
+  printf("Connected\n");
+  #endif
+
+  // Free address info
+  freeaddrinfo(serverinfo);
+
+  // Receive protocol versions
+  char server_message[2000];
+  receiveMessage(socket_desc, server_message, sizeof(server_message));
+
+  // Check supported protocols
+  char* supported_protocols[10];
+  int protocol_count = 0;
+  char* line = strtok(server_message, "\n");
+  while (line != NULL) {
+    if (strcmp(line, "") == 0) break;
+    supported_protocols[protocol_count++] = line;
+    line = strtok(NULL, "\n");
+  }
+
+  int protocol_supported = 0;
+  for (int i = 0; i < protocol_count; i++) {
+    if (strcmp(supported_protocols[i], "TEXT TCP 1.0") == 0) {
+      protocol_supported = 1;
+      break;
+    }
+  }
+
+  if (protocol_supported) {
+    sendMessage(socket_desc, "OK\n");
+  } else {
+    close(socket_desc);
+    return -1;
+  }
+
+  // Receive the assignment
+  receiveMessage(socket_desc, server_message, sizeof(server_message));
+
+  // Calculate and send the result
+  calculateMessage(server_message, socket_desc);
+
+  // Receive and print the final response
+  receiveMessage(socket_desc, server_message, sizeof(server_message));
+  printf("%s", server_message);
+
+  // Close socket and exit
+  close(socket_desc);
   return 0;
-
-	// *Close the socket:*
-	close(soc);
 }
