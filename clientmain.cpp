@@ -7,9 +7,9 @@
 #include <netdb.h>
 #include <unistd.h>
 #define SA struct sockaddr
-
+#define DEBUG
 // Uncomment the following line to enable debugging output
-//#define DEBUG
+
 
 // Includes the support library for calculations
 #include <calcLib.h>
