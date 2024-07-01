@@ -80,8 +80,13 @@ void* clientHandler(void* clientData) {
         free(info);
         return NULL;
     }
+    memset(buffer,0,size(buffer));
+    
+    int int_value = recv(info->sockfd, &buffer, MAX_BUF_SIZE, 0);'
+        if(int_value < 0){
+        perror("rev error");
+        }
 
-    recv(info->sockfd, &buffer, MAX_BUF_SIZE, 0);
     if (strcmp(buffer, "OK\n") != 0) {
         printf("buffer:%s\n",buffer);
         printf("Client[%d] sent an invalid message.\n", info->clientID);
