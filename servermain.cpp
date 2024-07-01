@@ -83,6 +83,7 @@ void* clientHandler(void* clientData) {
 
     recv(info->sockfd, &buffer, MAX_BUF_SIZE, 0);
     if (strcmp(buffer, "OK\n") != 0) {
+        printf("buffer:\n",buffer);
         printf("Client[%d] sent an invalid message.\n", info->clientID);
         close(info->sockfd);
         pthread_mutex_lock(&clientLock);
