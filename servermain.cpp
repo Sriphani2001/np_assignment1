@@ -80,9 +80,9 @@ void* clientHandler(void* clientData) {
         free(info);
         return NULL;
     }
-    memset(buffer,0,size(buffer));
+    memset(buffer,0,sizeof(buffer));
     
-    int int_value = recv(info->sockfd, &buffer, MAX_BUF_SIZE, 0);'
+    int int_value = recv(info->sockfd, &buffer, MAX_BUF_SIZE, 0);
         if(int_value < 0){
         perror("rev error");
         }
