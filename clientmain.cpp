@@ -6,20 +6,26 @@
 #include <errno.h>
 #include <netdb.h>
 #include <unistd.h>
+
 #define SA struct sockaddr
-#define DEBUG
+#define DEBUG // Uncomment to enable debug output
 
 // Includes the support library for calculations
 #include <calcLib.h>
 
 // Receives a message from the server and stores it in the provided buffer
 void receiveMessage(int &sock_desc, char* server_response, unsigned int buffer_size) {
-    memset(server_response, 0, buffer_size);
-    if(recv(sock_desc, server_response, buffer_size, 0) < 0) {
+    memset(server_response, 0, buffer_size); // Clear the buffer
+    int bytes_received = recv(sock_desc, server_response, buffer_size, 0);
+    if (bytes_received < 0) {
         #ifdef DEBUG
         printf("Error occurred while receiving the message\n");
         #endif
-        exit(-1);
+        exit(-1); // Exit if receiving message fails
+    } else if (bytes_received == 0) {
+        #ifdef DEBUG
+        printf("Server closed the connection\n");
+        #endif
     } else {
         #ifdef DEBUG
         printf("Received: %s", server_response);
@@ -29,7 +35,7 @@ void receiveMessage(int &sock_desc, char* server_response, unsigned int buffer_s
 
 // Sends a message to the server
 void sendMessage(int &sock_desc, const char* client_request) {
-    if(send(sock_desc, client_request, strlen(client_request), 0) < 0) {
+    if (send(sock_desc, client_request, strlen(client_request), 0) < 0) {
         #ifdef DEBUG
         printf("Error occurred while sending the message\n");
         #endif
@@ -49,31 +55,31 @@ void computeAndSendResult(const char* server_response, int &sock_desc) {
 
     sscanf(server_response, "%s %lf %lf", operation, &float1, &float2);
 
-    if(strcmp(operation, "fadd") == 0) {
+    if (strcmp(operation, "fadd") == 0) {
         float_result = float1 + float2;
-    } else if(strcmp(operation, "fsub") == 0) {
+    } else if (strcmp(operation, "fsub") == 0) {
         float_result = float1 - float2;
-    } else if(strcmp(operation, "fmul") == 0) {
+    } else if (strcmp(operation, "fmul") == 0) {
         float_result = float1 * float2;
-    } else if(strcmp(operation, "fdiv") == 0) {
+    } else if (strcmp(operation, "fdiv") == 0) {
         float_result = float1 / float2;
     } else {
         int1 = static_cast<int>(float1);
         int2 = static_cast<int>(float2);
 
-        if(strcmp(operation, "add") == 0) {
+        if (strcmp(operation, "add") == 0) {
             int_result = int1 + int2;
-        } else if(strcmp(operation, "sub") == 0) {
+        } else if (strcmp(operation, "sub") == 0) {
             int_result = int1 - int2;
-        } else if(strcmp(operation, "mul") == 0) {
+        } else if (strcmp(operation, "mul") == 0) {
             int_result = int1 * int2;
-        } else if(strcmp(operation, "div") == 0) {
+        } else if (strcmp(operation, "div") == 0) {
             int_result = int1 / int2;
         }
     }
 
     char response[50];
-    if(operation[0] == 'f') {
+    if (operation[0] == 'f') {
         sprintf(response, "%8.8g\n", float_result);
     } else {
         sprintf(response, "%d\n", int_result);
@@ -92,7 +98,7 @@ int main(int argc, char *argv[]) {
     char* colon = strrchr(host_port, ':');
     if (!colon) {
         printf("Incorrect format. Use <host:port>\n");
-        free(host_port); // Changed part: Ensure to free allocated memory
+        free(host_port); // Ensure to free allocated memory
         return -1;
     }
 
@@ -109,7 +115,7 @@ int main(int argc, char *argv[]) {
 
     if (getaddrinfo(hostname, colon + 1, &hints, &server_info) < 0) {
         printf("Error in getaddrinfo: %s\n", strerror(errno));
-        free(host_port); // Changed part: Ensure to free allocated memory
+        free(host_port); // Ensure to free allocated memory
         return -1;
     }
 
@@ -118,8 +124,8 @@ int main(int argc, char *argv[]) {
         #ifdef DEBUG
         printf("Socket creation failed\n");
         #endif
-        freeaddrinfo(server_info); // Changed part: Ensure to free allocated memory
-        free(host_port); // Changed part: Ensure to free allocated memory
+        freeaddrinfo(server_info); // Ensure to free allocated memory
+        free(host_port); // Ensure to free allocated memory
         return -1;
     }
     #ifdef DEBUG
@@ -130,9 +136,9 @@ int main(int argc, char *argv[]) {
         #ifdef DEBUG
         printf("Connection to server failed\n");
         #endif
-        freeaddrinfo(server_info); // Changed part: Ensure to free allocated memory
-        close(sock_desc); // Changed part: Close socket if connection fails
-        free(host_port); // Changed part: Ensure to free allocated memory
+        freeaddrinfo(server_info); // Ensure to free allocated memory
+        close(sock_desc); // Close socket if connection fails
+        free(host_port); // Ensure to free allocated memory
         return -1;
     }
     #ifdef DEBUG
@@ -140,42 +146,26 @@ int main(int argc, char *argv[]) {
     #endif
 
     freeaddrinfo(server_info);
-    free(host_port); // Changed part: Ensure to free allocated memory
+    free(host_port); // Ensure to free allocated memory
 
     char server_response[2000];
-    receiveMessage(sock_desc, server_response, sizeof(server_response));
 
-    char* supported_protocols[10];
-    int protocol_count = 0;
-    char* line = strtok(server_response, "\n");
-    while (line != NULL) {
-        if (strcmp(line, "") == 0) break;
-        supported_protocols[protocol_count++] = line;
-        line = strtok(NULL, "\n");
-    }
+    // Limit the number of bytes to receive to avoid endless data from protocols like chargen
+    receiveMessage(sock_desc, server_response, sizeof(server_response) - 1);
 
-    int protocol_supported = 0;
-    for (int i = 0; i < protocol_count; i++) {
-        if (strcmp(supported_protocols[i], "TEXT TCP 1.0") == 0) {
-            protocol_supported = 1;
-            break;
-        }
-    }
-
-    if (protocol_supported) {
+    // Handle protocol negotiation and computation if the server is not using chargen
+    if (strstr(server_response, "TEXT TCP 1.0")) {
         sendMessage(sock_desc, "OK\n");
+        receiveMessage(sock_desc, server_response, sizeof(server_response) - 1);
+        computeAndSendResult(server_response, sock_desc);
+        receiveMessage(sock_desc, server_response, sizeof(server_response) - 1);
+        printf("%s", server_response);
     } else {
-        close(sock_desc);
-        return -1;
+        #ifdef DEBUG
+        printf("Received unexpected data from server, closing connection.\n");
+        #endif
     }
 
-    receiveMessage(sock_desc, server_response, sizeof(server_response));
-
-    computeAndSendResult(server_response, sock_desc);
-
-    receiveMessage(sock_desc, server_response, sizeof(server_response));
-    printf("%s", server_response);
-
-    close(sock_desc);
+    close(sock_desc); // Close the socket
     return 0;
 }
