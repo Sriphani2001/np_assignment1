@@ -1,34 +1,43 @@
-CC_FLAGS= -Wall -I.
-LD_FLAGS= -Wall -L./ 
+# Compiler and flags
+CXX = g++
+CXXFLAGS = -Wall -I.
+LDFLAGS = -L./ -lcalc -lpthread
 
+# Targets
+all: test server client
 
-all: libcalc test client server
+# Build server
+server: servermain.o libcalc.a
+	$(CXX) $(CXXFLAGS) -o server servermain.o $(LDFLAGS)
 
+# Build client
+client: clientmain.o libcalc.a
+	$(CXX) $(CXXFLAGS) -o client clientmain.o $(LDFLAGS)
+
+# Build test
+test: main.o libcalc.a
+	$(CXX) $(CXXFLAGS) -o test main.o $(LDFLAGS)
+
+# Compile servermain.cpp
 servermain.o: servermain.cpp
-	$(CXX)  $(CC_FLAGS) $(CFLAGS) -c servermain.cpp 
+	$(CXX) $(CXXFLAGS) -c servermain.cpp
 
+# Compile clientmain.cpp
 clientmain.o: clientmain.cpp
-	$(CXX) $(CC_FLAGS) $(CFLAGS) -c clientmain.cpp 
+	$(CXX) $(CXXFLAGS) -c clientmain.cpp
 
+# Compile main.cpp
 main.o: main.cpp
-	$(CXX) $(CC_FLAGS) $(CFLAGS) -c main.cpp 
+	$(CXX) $(CXXFLAGS) -c main.cpp
 
+# Archive library
+libcalc.a: calcLib.o
+	ar -rc libcalc.a calcLib.o
 
-test: main.o calcLib.o
-	$(CXX) $(LD_FLAGS) -o test main.o -lcalc
+# Compile calcLib.c
+calcLib.o: calcLib.c
+	$(CXX) $(CXXFLAGS) -fPIC -c calcLib.c
 
-client: clientmain.o calcLib.o
-	$(CXX) $(LD_FLAGS) -o client clientmain.o -lcalc
-
-server: servermain.o calcLib.o
-	$(CXX) $(LD_FLAGS) -o server servermain.o -lcalc
-
-
-calcLib.o: calcLib.c calcLib.h
-	gcc -Wall -fPIC -c calcLib.c
-
-libcalc: calcLib.o
-	ar -rc libcalc.a -o calcLib.o
-
+# Clean up
 clean:
-	rm *.o *.a test server client
+	rm -f *.o *.a test server client
