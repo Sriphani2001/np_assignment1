@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
 
     struct addrinfo hints, *server_info;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET6; // Changed to AF_INET6 to support IPv6 addresses
     hints.ai_socktype = SOCK_STREAM;
 
     if (getaddrinfo(hostname, colon + 1, &hints, &server_info) < 0) {
