@@ -14,18 +14,20 @@
 #include <calcLib.h>
 
 // Receives a message from the server and stores it in the provided buffer
-void receiveMessage(int &sock_desc, char* server_response, unsigned int buffer_size) {
+void receiveMessage(int *sock_desc, char* server_response, unsigned int buffer_size) {
     memset(server_response, 0, buffer_size); // Clear the buffer
-    int bytes_received = recv(sock_desc, server_response, buffer_size, 0);
+    int bytes_received = recv(*sock_desc, server_response, buffer_size, 0);
     if (bytes_received < 0) {
         #ifdef DEBUG
-        printf("Error occurred while receiving the message\n");
+        printf("Error occurred while receiving the message: %s\n", strerror(errno));
         #endif
         exit(-1); // Exit if receiving message fails
     } else if (bytes_received == 0) {
         #ifdef DEBUG
         printf("Server closed the connection\n");
         #endif
+        close(*sock_desc);
+        exit(0);
     } else {
         #ifdef DEBUG
         printf("Received: %s", server_response);
@@ -34,18 +36,19 @@ void receiveMessage(int &sock_desc, char* server_response, unsigned int buffer_s
         // Close the connection immediately if this is CHARGEN-like behavior
         if (bytes_received > 100) { 
             printf("Received too much data, closing connection.\n");
-            close(sock_desc);
+            close(*sock_desc);
             exit(0);
         }
     }
 }
 
 // Sends a message to the server
-void sendMessage(int &sock_desc, const char* client_request) {
-    if (send(sock_desc, client_request, strlen(client_request), 0) < 0) {
+void sendMessage(int *sock_desc, const char* client_request) {
+    if (send(*sock_desc, client_request, strlen(client_request), 0) < 0) {
         #ifdef DEBUG
-        printf("Error occurred while sending the message\n");
+        printf("Error occurred while sending the message: %s\n", strerror(errno));
         #endif
+        close(*sock_desc);
         exit(-1);
     } else {
         #ifdef DEBUG
@@ -55,9 +58,9 @@ void sendMessage(int &sock_desc, const char* client_request) {
 }
 
 // Computes the result based on the server's request and sends it back
-void computeAndSendResult(const char* server_response, int &sock_desc) {
-    int int1, int2, int_result;
-    double float1, float2, float_result;
+void computeAndSendResult(const char* server_response, int *sock_desc) {
+    int int1, int2, int_result = 0;
+    double float1, float2, float_result = 0.0;
     char operation[10];
 
     sscanf(server_response, "%s %lf %lf", operation, &float1, &float2);
@@ -71,8 +74,8 @@ void computeAndSendResult(const char* server_response, int &sock_desc) {
     } else if (strcmp(operation, "fdiv") == 0) {
         float_result = float1 / float2;
     } else {
-        int1 = static_cast<int>(float1);
-        int2 = static_cast<int>(float2);
+        int1 = (int)float1;
+        int2 = (int)float2;
 
         if (strcmp(operation, "add") == 0) {
             int_result = int1 + int2;
@@ -129,7 +132,7 @@ int main(int argc, char *argv[]) {
     int sock_desc = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
     if (sock_desc < 0) {
         #ifdef DEBUG
-        printf("Socket creation failed\n");
+        printf("Socket creation failed: %s\n", strerror(errno));
         #endif
         freeaddrinfo(server_info); // Ensure to free allocated memory
         free(host_port); // Ensure to free allocated memory
@@ -141,7 +144,7 @@ int main(int argc, char *argv[]) {
 
     if (connect(sock_desc, server_info->ai_addr, server_info->ai_addrlen) < 0) {
         #ifdef DEBUG
-        printf("Connection to server failed\n");
+        printf("Connection to server failed: %s\n", strerror(errno));
         #endif
         freeaddrinfo(server_info); // Ensure to free allocated memory
         close(sock_desc); // Close socket if connection fails
@@ -158,14 +161,14 @@ int main(int argc, char *argv[]) {
     char server_response[2000];
 
     // Limit the number of bytes to receive to avoid endless data from protocols like chargen
-    receiveMessage(sock_desc, server_response, sizeof(server_response) - 1);
+    receiveMessage(&sock_desc, server_response, sizeof(server_response) - 1);
 
     // Handle protocol negotiation and computation if the server is not using chargen
     if (strstr(server_response, "TEXT TCP 1.0")) {
-        sendMessage(sock_desc, "OK\n");
-        receiveMessage(sock_desc, server_response, sizeof(server_response) - 1);
-        computeAndSendResult(server_response, sock_desc);
-        receiveMessage(sock_desc, server_response, sizeof(server_response) - 1);
+        sendMessage(&sock_desc, "OK\n");
+        receiveMessage(&sock_desc, server_response, sizeof(server_response) - 1);
+        computeAndSendResult(server_response, &sock_desc);
+        receiveMessage(&sock_desc, server_response, sizeof(server_response) - 1);
         printf("%s", server_response);
         printf("Test OK\n");  // Indicates successful completion of the test
     } else {
