@@ -21,12 +21,13 @@ void receiveMessage(int *sock_desc, char* server_response, unsigned int buffer_s
         #ifdef DEBUG
         printf("Error occurred while receiving the message: %s\n", strerror(errno));
         #endif
+        close(*sock_desc);  // Ensure to close socket on error
         exit(-1); // Exit if receiving message fails
     } else if (bytes_received == 0) {
         #ifdef DEBUG
         printf("Server closed the connection\n");
         #endif
-        close(*sock_desc);
+        close(*sock_desc);  // Close socket if server closes the connection
         exit(0);
     } else {
         #ifdef DEBUG
@@ -48,7 +49,7 @@ void sendMessage(int *sock_desc, const char* client_request) {
         #ifdef DEBUG
         printf("Error occurred while sending the message: %s\n", strerror(errno));
         #endif
-        close(*sock_desc);
+        close(*sock_desc);  // Ensure to close socket on error
         exit(-1);
     } else {
         #ifdef DEBUG
@@ -120,11 +121,12 @@ int main(int argc, char *argv[]) {
 
     struct addrinfo hints, *server_info;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET6; // Changed to AF_INET6 to support IPv6 addresses
+    hints.ai_family = AF_UNSPEC; // Use AF_UNSPEC to support both IPv4 and IPv6
     hints.ai_socktype = SOCK_STREAM;
 
-    if (getaddrinfo(hostname, colon + 1, &hints, &server_info) < 0) {
-        printf("Error in getaddrinfo: %s\n", strerror(errno));
+    int status = getaddrinfo(hostname, colon + 1, &hints, &server_info);
+    if (status != 0) {
+        printf("Error in getaddrinfo: %s\n", gai_strerror(status));  // Correct error handling
         free(host_port); // Ensure to free allocated memory
         return -1;
     }
@@ -164,14 +166,17 @@ int main(int argc, char *argv[]) {
     receiveMessage(&sock_desc, server_response, sizeof(server_response) - 1);
 
     // Handle protocol negotiation and computation if the server is not using chargen
-    if (strstr(server_response, "TEXT TCP 1.0")) {
+    if (strstr(server_response, "TEXT TCP 1.0")) 
+    {
         sendMessage(&sock_desc, "OK\n");
         receiveMessage(&sock_desc, server_response, sizeof(server_response) - 1);
         computeAndSendResult(server_response, &sock_desc);
         receiveMessage(&sock_desc, server_response, sizeof(server_response) - 1);
         printf("%s", server_response);
         printf("Test OK\n");  // Indicates successful completion of the test
-    } else {
+    } 
+    
+    else {
         printf("Unexpected protocol or data received. Test ERROR\n");
         close(sock_desc); // Close the socket to abort the connection
         return 0; // Terminate immediately after closing the socket
